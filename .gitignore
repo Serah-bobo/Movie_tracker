@@ -1,0 +1,29 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# VSCode or PyCharm settings
+.vscode/
+.idea/
+
+# Virtual environment
+venv/
+
+
+db.sqlite3          # SQLite DB file, if you use SQLite
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Logs
+*.log
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# PyCharm workspace files (optional)
+*.iml
+
