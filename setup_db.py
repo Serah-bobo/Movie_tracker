@@ -1,4 +1,6 @@
 import sqlite3
+from datetime import datetime
+
 #connect db with connect()
 #cursor acts as a pen to database to read/write the db
 #we use with to close connection automatically
@@ -46,7 +48,7 @@ movies_tables = [
        );"""
 ]
 #insering data to the tables
-#a placeholder ? is an empty space,safe way to put values without directly writing them in sql commands
+#a placeholder ? is an empty space,safe way to put values without directly writing them in SQL commands
 #important in preventing sql injection
 #commit() save changes permanently
 #rollback() unsave
@@ -58,14 +60,14 @@ def add_genre(conn, genre_name):
         return None
     # Check if the genre already exists
     cur = conn.cursor()
-    cur.execute("SELECT id FROM genres WHERE name = ?", (genre_name,))
+    cur.execute("SELECT id FROM genres WHERE genre_name = ?", (genre_name,))
     existing = cur.fetchone()
 
     if existing:
         print(f"Genre '{genre_name}' already exists with id {existing[0]}")
         return existing[0]
     #insert
-    sql="INSERT INTO genres(name) VALUES (?)"
+    sql="INSERT INTO genres(genre_name) VALUES (?)"
     #create cursor
     #execute insert
     cur.execute(sql,(genre_name,))
@@ -94,6 +96,80 @@ def add_user(conn,first_name,last_name,email ):
     conn.commit()
     return cur.lastrowid
 
+#movies
+def add_movies(conn, title, release_year, genre_id):
+    # Error handling
+    if not title or not release_year or not genre_id:
+        print("Movie cannot be empty")
+        return None
+
+    cur = conn.cursor()
+
+    # Check if genre exists
+    cur.execute("SELECT id FROM genres WHERE id=?", (genre_id,))
+    genre = cur.fetchone()
+    if not genre:
+        print(f"Genre with ID {genre_id} does not exist. Add the genre first.")
+        return None  # stop here
+
+    # Check if movies already exists
+    cur.execute("SELECT id FROM movies WHERE title=? AND release_year=?",
+                (title, release_year))
+    existing = cur.fetchone()
+    if existing:
+        print(f"Movie '{title}' already exists with ID {existing[0]}")
+        return existing[0]
+
+    # Insert movie
+    cur.execute("INSERT INTO movies(title, release_year, genre_id) VALUES (?, ?, ?)",
+                (title, release_year, genre_id))
+    conn.commit()
+    return cur.lastrowid
+
+#add reviews
+
+def add_review(conn, movie_title, user_email, rating, comment):
+    # Error handling
+    if not movie_title or not user_email or rating is None:
+        print("Review fields cannot be empty")
+        return
+
+    cur = conn.cursor()
+
+    # Validate rating
+    if rating < 0 or rating > 10:
+        print("Rating must be between 0 and 10")
+        return
+
+    # Find movie_id by title
+    cur.execute("SELECT id FROM movies WHERE title = ?", (movie_title,))
+    movie = cur.fetchone()
+    if not movie:
+        print(f"Movie '{movie_title}' not found.")
+        return
+    movie_id = movie[0]
+
+    # Find user_id by email
+    cur.execute("SELECT id FROM users WHERE email = ?", (user_email,))
+    user = cur.fetchone()
+    if not user:
+        print(f"User with email '{user_email}' not found.")
+        return
+    user_id = user[0]
+
+    # Current date
+    review_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Insert review
+    sql = """INSERT INTO reviews (movie_id, user_id, rating, comment, date)
+                 VALUES (?, ?, ?, ?, ?)"""
+    cur.execute(sql, (movie_id, user_id, rating, comment, review_date))
+    conn.commit()
+
+    print(f"✅ Review added for '{movie_title}' by {user_email} on {review_date}")
+    return cur.lastrowid
+
+
 
 def main():
     try:
@@ -120,9 +196,50 @@ def main():
                 user_id = add_user(conn, first_name, last_name, email)
                 print(f"Added user '{first_name} {last_name}' with ID {user_id}")
 
+
+            #adding movies
+            movies_to_add = [
+                ("Inception", 2010, "Action"),
+                ("The Dark Knight", 2008, "Action"),
+                ("Forrest Gump", 1994, "Drama"),
+                ("The Hangover", 2009, "Comedy"),
+                ("Get Out", 2017, "Horror"),
+                ("Titanic", 1997, "Romance"),
+                ("Interstellar", 2014, "Sci-Fi"),
+                ("Toy Story", 1995, "Animation"),
+                ("The Social Dilemma", 2020, "Documentary"),
+                ("Se7en", 1995, "Thriller")
+            ]
+            for title, release_year, genre_name in movies_to_add:
+                cursor.execute("SELECT id FROM genres WHERE genre_name=?", (genre_name,))
+                genre_row=cursor.fetchone()
+                if not genre_row:
+                    print(f"Genre '{genre_name}' not found. Add it first!")
+                    continue  # skip this movie
+
+                genre_id = genre_row[0]  # now we have the actual genre ID
+
+                movie_id = add_movies(conn, title, release_year, genre_id)
+                if movie_id:
+                    print(f"Added movie '{title}' ({release_year}) with genre '{genre_name}' and ID {movie_id}")
+
+            # Add some reviews
+            reviews_to_add = [
+                ("Inception", "ndunguserahwambui@gmail.com", 9.5, "Mind-blowing sci-fi!"),
+                ("Titanic", "danielgithumbi1998@gmail.com", 8.8, "Emotional and timeless."),
+                ("The Dark Knight", "ndunguserahwambui@gmail.com", 9.7, "Best superhero movie ever!")
+            ]
+
+            for movie_title, user_email, rating, comment in reviews_to_add:
+                add_review(conn, movie_title, user_email, rating, comment)
+
+
     except sqlite3.OperationalError as e:
         print("Error while connecting to SQLite:", e)
-# This line ensures that main() runs only when this file is executed directly,
+# This line ensures that main() runs only when this file is executed directly.
 # not when it is imported into another file.
 if __name__ == "__main__":
     main()
+
+#join putting rows of multiple tables together
+#inner join returns rows that exist in both tables
